@@ -4,10 +4,12 @@ export default function register(Component, tagName, propNames, options) {
 	function PreactElement() {
 		const inst = Reflect.construct(HTMLElement, [], PreactElement);
 		inst._vdomComponent = Component;
-		inst._root = options && options.shadow ? inst.attachShadow({ mode: 'open' }) : inst;
+		inst._root =
+			options && options.shadow ? inst.attachShadow({ mode: 'open' }) : inst;
 
 		// Setup custom event
-		const handlerCustomEvent = (emitName, payload) => inst.dispatch(emitName, payload)
+		const handlerCustomEvent = (emitName, payload) =>
+			inst.dispatch(emitName, payload);
 		inst._emitCustomEvent = handlerCustomEvent;
 		Object.defineProperty(inst, 'handlerCustomEvent', {
 			get() {
@@ -92,8 +94,8 @@ function connectedCallback() {
 		ContextProvider,
 		{
 			...this._props,
-			customElement: { emitEvent: this._emitCustomEvent },
-			context
+			emitEvent: this._emitCustomEvent,
+			context,
 		},
 		toVdom(this, this._vdomComponent)
 	);
