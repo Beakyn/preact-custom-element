@@ -4,20 +4,32 @@ export default function register(Component, tagName, propNames, options) {
 	function PreactElement() {
 		const inst = Reflect.construct(HTMLElement, [], PreactElement);
 		inst._vdomComponent = Component;
-		inst._root =
-			options && options.shadow ? inst.attachShadow({ mode: 'open' }) : inst;
+		inst._root = options && options.shadow ? inst.attachShadow({ mode: 'open' }) : inst;
+
+		// Setup custom event
+		const handlerCustomEvent = (emitName, payload) => inst.dispatch(emitName, payload)
+		inst._emitCustomEvent = handlerCustomEvent;
+		Object.defineProperty(inst, 'handlerCustomEvent', {
+			get() {
+				return handlerCustomEvent;
+			},
+		});
+
 		return inst;
 	}
+
 	PreactElement.prototype = Object.create(HTMLElement.prototype);
 	PreactElement.prototype.constructor = PreactElement;
 	PreactElement.prototype.connectedCallback = connectedCallback;
 	PreactElement.prototype.attributeChangedCallback = attributeChangedCallback;
 	PreactElement.prototype.disconnectedCallback = disconnectedCallback;
+	PreactElement.prototype.dispatch = dispatch;
 
 	propNames =
 		propNames ||
 		Component.observedAttributes ||
 		Object.keys(Component.propTypes || {});
+
 	PreactElement.observedAttributes = propNames;
 
 	// Keep DOM properties and Preact props in sync
@@ -78,7 +90,11 @@ function connectedCallback() {
 
 	this._vdom = h(
 		ContextProvider,
-		{ ...this._props, context },
+		{
+			...this._props,
+			customElement: { emitEvent: this._emitCustomEvent },
+			context
+		},
 		toVdom(this, this._vdomComponent)
 	);
 	(this.hasAttribute('hydrate') ? hydrate : render)(this._vdom, this._root);
@@ -104,6 +120,24 @@ function attributeChangedCallback(name, oldValue, newValue) {
 
 function disconnectedCallback() {
 	render((this._vdom = null), this._root);
+}
+
+function dispatch(eventName, payload) {
+	return new Promise((resolve, reject) => {
+		const callback = (result, error) => {
+			if (error !== undefined) {
+				reject(error);
+				return;
+			}
+			resolve(result);
+		};
+		this.dispatchEvent(
+			new CustomEvent(eventName, {
+				bubbles: true,
+				detail: { callback, payload },
+			})
+		);
+	});
 }
 
 /**
